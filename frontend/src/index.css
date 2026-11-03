@@ -1,0 +1,289 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========== PRINT UTILITIES ========== */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; }
+  @page { margin: 0.6in; size: letter portrait; }
+}
+
+/* ========== VARIABLES ========== */
+:root {
+  --orange:       #EA6020;
+  --orange-dark:  #C24E18;
+  --orange-deep:  #8C3510;
+  --cream:        #FFF5ED;
+  --cream-light:  #FFF9F5;
+  --orange-light: #F49A6B;
+  --orange-pale:  #FCDCC8;
+  --text-cream:   #FFE8D6;
+  --text-dark:    #3A1A08;
+  --font-h1:      'Bahnschrift SemiBold', 'Segoe UI Semibold', 'Arial Black', sans-serif;
+  --font-h2:      'Bahnschrift SemiCondensed', 'Segoe UI', Arial, sans-serif;
+  --font-body:    'Bahnschrift Light', 'Segoe UI Light', 'Inter', sans-serif;
+
+  /* ── theme surface vars: dark defaults ── */
+  --card-bg:         rgba(90,28,6,0.72);
+  --card-shadow:     0 8px 48px rgba(0,0,0,0.30);
+  --card-border-clr: rgba(234,96,32,0.22);
+  --card-backdrop:   blur(2px);
+
+  --t-primary:   #FFF5ED;
+  --t-secondary: rgba(255,232,214,0.70);
+  --t-muted:     rgba(255,232,214,0.50);
+
+  --avatar-bg:     rgba(255,255,255,0.06);
+  --avatar-border: rgba(255,245,237,0.12);
+  --avatar-color:  rgba(255,245,237,0.18);
+
+  --surf-bg:        rgba(255,255,255,0.04);
+  --surf-bg-2:      rgba(255,255,255,0.02);
+  --surf-bg-active: rgba(234,96,32,0.08);
+  --surf-bg-hover:  rgba(234,96,32,0.10);
+  --surf-border:    rgba(255,245,237,0.08);
+  --surf-divider:   rgba(255,245,237,0.06);
+
+  /* Solid equivalents for sticky table cells (resolved over card-bg layer then body) */
+  --_card-solid:       color-mix(in srgb, rgb(90,28,6) 72%, var(--orange-deep));
+  --thead-bg:          #FDF2EC;
+  --sticky-row-even:   color-mix(in srgb, white 4%, var(--_card-solid));
+  --sticky-row-odd:    var(--_card-solid);
+  --sticky-row-career: color-mix(in srgb, #EA6020 7%, color-mix(in srgb, white 4%, var(--_card-solid)));
+  --thead-bg:          #FDF2EC;
+
+  --input-bg:     rgba(255,255,255,0.06);
+  --input-border: rgba(255,245,237,0.15);
+  --input-clr:    #FFF5ED;
+
+  --nav-border:    rgba(234,96,32,0.10);
+  --section-div:   rgba(234,96,32,0.20);
+  --note-bg:       rgba(255,255,255,0.03);
+  --note-border:   rgba(255,245,237,0.06);
+  --note-clr:      rgba(255,245,237,0.40);
+  --mono-clr:      rgba(255,245,237,0.80);
+  --years-clr:     rgba(255,232,214,0.60);
+}
+
+/* ── light mode overrides ── */
+body.theme-light {
+  --card-bg:         #ffffff;
+  --card-shadow:     0 8px 48px rgba(140,53,16,0.20);
+  --card-border-clr: rgba(234,96,32,0.12);
+  --card-backdrop:   none;
+
+  --t-primary:   #3A1A08;
+  --t-secondary: rgba(194,78,24,0.75);
+  --t-muted:     rgba(194,78,24,0.55);
+
+  --avatar-bg:     #FCDCC8;
+  --avatar-border: #F49A6B;
+  --avatar-color:  rgba(234,96,32,0.55);
+
+  --surf-bg:        rgba(234,96,32,0.04);
+  --surf-bg-2:      rgba(234,96,32,0.01);
+  --surf-bg-active: rgba(234,96,32,0.05);
+  --surf-bg-hover:  rgba(234,96,32,0.08);
+  --surf-border:    rgba(234,96,32,0.10);
+  --surf-divider:   rgba(234,96,32,0.08);
+
+  /* Solid equivalents for sticky table cells (card-bg is #fff in light mode) */
+  --sticky-row-even:   color-mix(in srgb, #EA6020 4%, #ffffff);
+  --sticky-row-odd:    #ffffff;
+  --sticky-row-career: color-mix(in srgb, #EA6020 7%, #ffffff);
+
+  --input-bg:     rgba(234,96,32,0.04);
+  --input-border: rgba(234,96,32,0.15);
+  --input-clr:    #3A1A08;
+
+  --nav-border:    rgba(234,96,32,0.08);
+  --section-div:   rgba(234,96,32,0.15);
+  --note-bg:       rgba(234,96,32,0.03);
+  --note-border:   rgba(234,96,32,0.08);
+  --note-clr:      rgba(234,96,32,0.45);
+  --mono-clr:      rgba(58,26,8,0.80);
+  --years-clr:     rgba(194,78,24,0.70);
+}
+
+/* ========== RESET ========== */
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
+
+html, body, #root {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--cream);
+  min-height: 100vh;
+  background: var(--orange-deep);
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(234, 96, 32, .45) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(244, 154, 107, .35) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 80%, rgba(140, 53, 16, .5) 0%, transparent 50%),
+    repeating-linear-gradient(135deg,
+      rgba(255,200,160,.06) 0px, rgba(255,200,160,.06) 2px,
+      transparent 2px, transparent 6px),
+    repeating-linear-gradient(45deg,
+      rgba(0,0,0,.04) 0px, rgba(0,0,0,.04) 1px,
+      transparent 1px, transparent 5px),
+    linear-gradient(160deg, #EA6020 0%, #C24E18 30%, #D4691F 50%, #8C3510 70%, #EA6020 100%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--cream); text-decoration: none; }
+
+/* ========== THEMED SCROLLBAR ========== */
+.orange-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--orange-dark) rgba(234,96,32,0.12);
+}
+.orange-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.orange-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 99px;
+  margin-top: 3%;
+  margin-bottom: 3%;
+}
+.orange-scroll:hover::-webkit-scrollbar-track {
+  background: rgba(234,96,32,0.10);
+  border-radius: 99px;
+  margin-top: 3%;
+  margin-bottom: 3%;
+}
+.orange-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 99px;
+}
+.orange-scroll:hover::-webkit-scrollbar-thumb {
+  background: var(--orange-dark);
+  border-radius: 99px;
+}
+
+/* ========== SEARCH INPUT PLACEHOLDER ========== */
+.search-input::placeholder {
+  color: rgba(244,154,107,0.45);
+}
+.ctrl-placeholder {
+  color: rgba(244,154,107,0.45) !important;
+}
+.orange-scroll option {
+  color: #000;
+}
+
+/* ========== DUAL RANGE SLIDER ========== */
+.range-wrap {
+  position: relative;
+  height: 20px;
+  display: flex;
+  align-items: center;
+}
+.range-wrap input[type="range"] {
+  position: absolute;
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+  outline: none;
+}
+.range-wrap input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--orange);
+  border: 2px solid rgba(255,245,237,0.25);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.range-wrap input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--orange);
+  border: 2px solid rgba(255,245,237,0.25);
+  cursor: pointer;
+  pointer-events: auto;
+  border: none;
+}
+.range-track {
+  position: absolute;
+  height: 4px;
+  width: 100%;
+  background: rgba(244,154,107,0.15);
+  border-radius: 99px;
+}
+.range-fill {
+  position: absolute;
+  height: 4px;
+  background: var(--orange);
+  border-radius: 99px;
+}
+
+/* ========== LANDING PAGE RESPONSIVE GRID ========== */
+/*
+  Wide (default): all 5 in one flex row — MLU UFA USAU WUL PUL
+  Narrow (<= 640px): staggered 3+2 brick grid
+    Row 1:  USAU  WUL  PUL
+    Row 2:    MLU   UFA
+  Array positions: 0=MLU 1=UFA 2=USAU 3=WUL 4=PUL
+  6-col grid: top items span cols 1-2, 3-4, 5-6
+              bottom items stagger to cols 2-4, 4-6 (centred under gaps)
+*/
+@media (max-width: 640px) {
+  .league-grid {
+    display: grid !important;
+    grid-template-columns: repeat(6, 1fr);
+    gap: clamp(4px, 2vw, 12px) !important;
+    align-items: end;
+  }
+
+  /* Top row: USAU(2) WUL(3) PUL(4) */
+  .league-item-2 { order: 1; grid-column: 1 / 3; grid-row: 1; }
+  .league-item-3 { order: 2; grid-column: 3 / 5; grid-row: 1; }
+  .league-item-4 { order: 3; grid-column: 5 / 7; grid-row: 1; }
+
+  /* Bottom row: MLU(0) UFA(1) — staggered under gaps */
+  .league-item-0 { order: 4; grid-column: 2 / 4; grid-row: 2; }
+  .league-item-1 { order: 5; grid-column: 4 / 6; grid-row: 2; }
+}
+
+/* ── Score ticker ───────────────────────────────────────────── */
+@keyframes ticker-flash {
+  0%   { background: rgba(234,96,32,0.55); }
+  60%  { background: rgba(234,96,32,0.15); }
+  100% { background: transparent; }
+}
+.ticker-score-flash {
+  animation: ticker-flash 1.4s ease-out;
+}
+.score-ticker-track {
+  display: flex;
+  align-items: stretch;
+  width: max-content;
+  height: 38px;
+}
+.ticker-week-card {
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 24px; flex-shrink: 0; height: 38px;
+  border-right: none;
+  box-shadow: inset -1px 0 0 #EA6020;
+  background: #EA6020;
+  position: relative;
+  z-index: 10;
+}
+.ticker-week-card span {
+  font-family: var(--font-h2); font-size: 13px; letter-spacing: 3px;
+  color: #fff; font-weight: 700;
+}

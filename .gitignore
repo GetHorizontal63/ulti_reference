@@ -1,0 +1,33 @@
+# ── Data: everything under data/ stays local (DB is 488 MB; GitHub rejects
+#    files > 100 MB). In production the same layout lives on a TrueNAS dataset.
+data/*
+!data/README.md
+
+# Stray SQLite files anywhere else
+*.db
+*.db-wal
+*.db-shm
+*.db.partial
+
+# Secrets
+.env
+.env.*
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Logs / OS / editor
+*.log
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/

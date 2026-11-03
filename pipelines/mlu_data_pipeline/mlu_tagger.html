@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MLU Throw Tagger</title>
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --bg2: #16161a;
+    --bg3: #1e1e24;
+    --border: #2a2a34;
+    --border2: #3a3a48;
+    --text: #e8e8f0;
+    --text2: #9090a8;
+    --text3: #5a5a70;
+    --accent: #4f8ef7;
+    --accent2: #2a5cc4;
+    --green: #3ecf8e;
+    --red: #f76060;
+    --amber: #f7b84b;
+    --purple: #a78bfa;
+    --font: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+  /* TOP BAR */
+  #topbar { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  #topbar .logo { font-size: 11px; font-weight: 700; letter-spacing: 0.15em; color: var(--accent); white-space: nowrap; }
+  #topbar select, #topbar input { background: var(--bg3); border: 1px solid var(--border2); color: var(--text); padding: 4px 8px; border-radius: 4px; font-family: var(--font); font-size: 12px; }
+  #topbar select { min-width: 220px; }
+  #topbar .sep { width: 1px; height: 20px; background: var(--border2); flex-shrink: 0; }
+  #topbar label { color: var(--text2); font-size: 11px; white-space: nowrap; }
+  #status-badge { font-size: 11px; padding: 3px 8px; border-radius: 3px; background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); margin-left: auto; }
+  #status-badge.ok { border-color: var(--green); color: var(--green); }
+  #status-badge.err { border-color: var(--red); color: var(--red); }
+
+  /* MAIN LAYOUT */
+  #main { display: flex; flex: 1; overflow: hidden; }
+
+  /* LEFT: VIDEO + CONTROLS */
+  #left-panel { display: flex; flex-direction: column; width: 52%; border-right: 1px solid var(--border); flex-shrink: 0; }
+  #video-wrap { position: relative; background: #000; flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #video-wrap video { max-width: 100%; max-height: 100%; display: block; }
+  #no-video { color: var(--text3); font-size: 12px; text-align: center; }
+  #no-video span { display: block; font-size: 28px; margin-bottom: 8px; }
+
+  /* TRANSPORT */
+  #transport { background: var(--bg2); border-top: 1px solid var(--border); padding: 8px 12px; flex-shrink: 0; }
+  #scrubber { width: 100%; height: 4px; background: var(--bg3); border-radius: 2px; appearance: none; outline: none; cursor: pointer; margin-bottom: 8px; }
+  #scrubber::-webkit-slider-thumb { appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+  #transport-row { display: flex; align-items: center; gap: 8px; }
+  #timecode { font-size: 14px; font-weight: 700; color: var(--accent); min-width: 90px; letter-spacing: 0.05em; }
+  .tbtn { background: var(--bg3); border: 1px solid var(--border2); color: var(--text); padding: 4px 10px; border-radius: 3px; cursor: pointer; font-family: var(--font); font-size: 12px; white-space: nowrap; }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent); }
+  .tbtn.active { background: var(--accent2); border-color: var(--accent); color: #fff; }
+  #frame-step { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+  #frame-step label { color: var(--text2); font-size: 11px; }
+  #fps-select { background: var(--bg3); border: 1px solid var(--border2); color: var(--text); padding: 2px 4px; border-radius: 3px; font-family: var(--font); font-size: 11px; }
+
+  /* THROW FORM */
+  #throw-form { background: var(--bg2); border-top: 1px solid var(--border); padding: 10px 12px; flex-shrink: 0; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .field-group { display: flex; flex-direction: column; gap: 3px; }
+  .field-group label { font-size: 10px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; }
+  .field-group input, .field-group select { background: var(--bg3); border: 1px solid var(--border2); color: var(--text); padding: 4px 6px; border-radius: 3px; font-family: var(--font); font-size: 12px; width: 100%; }
+  .field-group input:focus, .field-group select:focus { outline: none; border-color: var(--accent); }
+  .field-group input.coord { background: var(--bg); border-color: var(--purple); color: var(--purple); }
+  .field-group input.coord.set { background: #1a1030; border-color: var(--purple); }
+  #form-actions { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; padding-top: 4px; border-top: 1px solid var(--border); }
+  #btn-save { background: var(--green); border: none; color: #000; padding: 6px 18px; border-radius: 3px; font-family: var(--font); font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: 0.05em; }
+  #btn-save:hover { opacity: 0.88; }
+  #btn-clear { background: transparent; border: 1px solid var(--border2); color: var(--text2); padding: 6px 12px; border-radius: 3px; font-family: var(--font); font-size: 12px; cursor: pointer; }
+  #btn-clear:hover { border-color: var(--red); color: var(--red); }
+  #mode-indicator { font-size: 11px; color: var(--text3); margin-left: auto; }
+  #mode-indicator span { color: var(--amber); font-weight: 700; }
+
+  /* RIGHT: FIELD + LOG */
+  #right-panel { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+  /* FIELD MAP */
+  #field-wrap { flex: 1; display: flex; align-items: stretch; justify-content: center; background: var(--bg); overflow: hidden; padding: 12px; }
+  #field-svg { width: 100%; height: 100%; }
+
+  /* PLACEMENT MODE TOOLBAR */
+  #placement-bar { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 6px 12px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+  #placement-bar label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; }
+  .pmode-btn { background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); padding: 3px 9px; border-radius: 3px; cursor: pointer; font-family: var(--font); font-size: 11px; }
+  .pmode-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .pmode-btn.active { background: var(--accent2); border-color: var(--accent); color: #fff; }
+  .pmode-btn.purple.active { background: #3d2080; border-color: var(--purple); color: var(--purple); }
+  #placement-hint { font-size: 11px; color: var(--amber); margin-left: auto; }
+
+  /* LOG */
+  #log-panel { height: 140px; border-top: 1px solid var(--border); background: var(--bg2); display: flex; flex-direction: column; flex-shrink: 0; }
+  #log-header { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-bottom: 1px solid var(--border); }
+  #log-header span { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; }
+  #log-count { font-size: 11px; color: var(--accent); margin-left: auto; }
+  #btn-export { background: transparent; border: 1px solid var(--border2); color: var(--text2); padding: 2px 8px; border-radius: 3px; font-family: var(--font); font-size: 11px; cursor: pointer; }
+  #btn-export:hover { border-color: var(--green); color: var(--green); }
+  #log-body { overflow-y: auto; flex: 1; }
+  #log-body table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  #log-body th { position: sticky; top: 0; background: var(--bg3); color: var(--text3); font-weight: 400; text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--border); text-transform: uppercase; font-size: 10px; letter-spacing: 0.06em; }
+  #log-body td { padding: 3px 8px; border-bottom: 1px solid var(--border); color: var(--text2); white-space: nowrap; }
+  #log-body tr:hover td { background: var(--bg3); color: var(--text); }
+  .outcome-goal { color: var(--green); }
+  .outcome-complete { color: var(--accent); }
+  .outcome-throwaway, .outcome-drop, .outcome-incomplete, .outcome-block { color: var(--red); }
+
+  /* DB CONFIG MODAL */
+  #db-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
+  #db-modal.open { display: flex; }
+  #db-modal-inner { background: var(--bg2); border: 1px solid var(--border2); border-radius: 6px; padding: 20px; width: 420px; }
+  #db-modal-inner h2 { font-size: 13px; color: var(--text); margin-bottom: 12px; }
+  #db-modal-inner label { font-size: 11px; color: var(--text2); display: block; margin-bottom: 4px; }
+  #db-modal-inner input { width: 100%; background: var(--bg3); border: 1px solid var(--border2); color: var(--text); padding: 6px 8px; border-radius: 3px; font-family: var(--font); font-size: 12px; margin-bottom: 10px; }
+  #db-modal-inner p { font-size: 11px; color: var(--text3); margin-bottom: 12px; line-height: 1.6; }
+  #db-modal-btns { display: flex; gap: 8px; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="logo">MLU // THROW TAGGER</div>
+  <div class="sep"></div>
+  <label>GAME</label>
+  <select id="game-select"><option value="">-- load games --</option></select>
+  <div class="sep"></div>
+  <label>VIDEO URL</label>
+  <input type="text" id="video-url-input" placeholder="paste or auto-filled from game" style="width:280px">
+  <button class="tbtn" id="btn-load-video">LOAD</button>
+  <div class="sep"></div>
+  <button class="tbtn" id="btn-db-config">DB CONFIG</button>
+  <div id="status-badge" id="status">OFFLINE</div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- LEFT PANEL -->
+  <div id="left-panel">
+    <div id="video-wrap">
+      <div id="no-video"><span>▶</span>no video loaded</div>
+      <video id="player" preload="auto" crossorigin="anonymous" style="display:none;max-width:100%;max-height:100%;"></video>
+      <iframe id="yt-player" style="display:none;width:100%;height:100%;border:none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    </div>
+
+    <!-- TRANSPORT -->
+    <div id="transport">
+      <input type="range" id="scrubber" min="0" max="1000" value="0" step="1">
+      <div id="transport-row">
+        <div id="timecode">00:00.000</div>
+        <button class="tbtn" id="btn-frame-back">◀ 1f</button>
+        <button class="tbtn" id="btn-play">▶ PLAY</button>
+        <button class="tbtn" id="btn-frame-fwd">1f ▶</button>
+        <button class="tbtn" id="btn-mark-throw" title="Mark throw timestamp (T)">📍 THROW [T]</button>
+        <button class="tbtn" id="btn-mark-catch" title="Mark catch timestamp (C)">📍 CATCH [C]</button>
+        <div id="frame-step">
+          <label>FPS</label>
+          <select id="fps-select">
+            <option value="29.97">29.97</option>
+            <option value="30" selected>30</option>
+            <option value="59.94">59.94</option>
+            <option value="60">60</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- THROW FORM -->
+    <div id="throw-form">
+      <div class="field-group">
+        <label>Period</label>
+        <select id="f-period">
+          <option value="1">1</option><option value="2">2</option>
+          <option value="3">3</option><option value="4">4</option>
+          <option value="5">OT</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label>Time Remaining (s)</label>
+        <input type="number" id="f-time-remaining" placeholder="e.g. 720">
+      </div>
+      <div class="field-group">
+        <label>Possession Team</label>
+        <input type="text" id="f-poss-team" placeholder="team id">
+      </div>
+
+      <div class="field-group">
+        <label>Thrower ID</label>
+        <input type="text" id="f-thrower-id" placeholder="player_id">
+      </div>
+      <div class="field-group">
+        <label>Thrower Name</label>
+        <input type="text" id="f-thrower-name" placeholder="full name">
+      </div>
+      <div class="field-group" style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+        <div class="field-group">
+          <label>Thrower X</label>
+          <input type="text" id="f-thrower-x" class="coord" readonly placeholder="click field">
+        </div>
+        <div class="field-group">
+          <label>Thrower Y</label>
+          <input type="text" id="f-thrower-y" class="coord" readonly placeholder="click field">
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label>Receiver ID</label>
+        <input type="text" id="f-receiver-id" placeholder="player_id">
+      </div>
+      <div class="field-group">
+        <label>Receiver Name</label>
+        <input type="text" id="f-receiver-name" placeholder="full name">
+      </div>
+      <div class="field-group" style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+        <div class="field-group">
+          <label>Rcvr X@Throw</label>
+          <input type="text" id="f-rx-throw" class="coord" readonly placeholder="click field">
+        </div>
+        <div class="field-group">
+          <label>Rcvr Y@Throw</label>
+          <input type="text" id="f-ry-throw" class="coord" readonly placeholder="click field">
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label>Throw Hand</label>
+        <select id="f-throw-hand">
+          <option value="">--</option>
+          <option value="R">R</option>
+          <option value="L">L</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label>Throw Type</label>
+        <select id="f-throw-type">
+          <option value="">-- select --</option>
+          <option value="backhand">backhand</option>
+          <option value="forehand">forehand</option>
+          <option value="hammer">hammer</option>
+          <option value="scoober">scoober</option>
+          <option value="pushpass">pushpass</option>
+          <option value="thumber">thumber</option>
+        </select>
+      </div>
+      <div class="field-group" id="shape-group">
+        <label>Throw Shape</label>
+        <select id="f-throw-shape">
+          <option value="">-- select --</option>
+          <option value="IO">IO</option>
+          <option value="OI">OI</option>
+          <option value="flat">flat</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label>Throw Outcome</label>
+        <select id="f-outcome">
+          <option value="">-- select --</option>
+          <option value="complete">complete</option>
+          <option value="goal">goal</option>
+          <option value="throwaway">throwaway</option>
+          <option value="drop">drop</option>
+          <option value="incomplete">incomplete</option>
+          <option value="block">block</option>
+        </select>
+      </div>
+      <div class="field-group" style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+        <div class="field-group">
+          <label>Rcvr X@Catch</label>
+          <input type="text" id="f-rx-catch" class="coord" readonly placeholder="click field">
+        </div>
+        <div class="field-group">
+          <label>Rcvr Y@Catch</label>
+          <input type="text" id="f-ry-catch" class="coord" readonly placeholder="click field">
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Throw TS</label>
+        <input type="text" id="f-throw-ts" readonly placeholder="mark video">
+      </div>
+      <div class="field-group">
+        <label>Catch TS</label>
+        <input type="text" id="f-catch-ts" readonly placeholder="mark video">
+      </div>
+
+      <div id="form-actions">
+        <button id="btn-save">SAVE THROW</button>
+        <button id="btn-clear">CLEAR</button>
+        <div id="mode-indicator">placement mode: <span id="pmode-label">none</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div id="right-panel">
+    <!-- FIELD -->
+    <div id="field-wrap">
+      <svg id="field-svg" viewBox="0 0 200 280" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+        <!-- Field background -->
+        <rect x="0" y="0" width="200" height="280" fill="#1a2e1a"/>
+        <!-- End zones -->
+        <rect x="0" y="0" width="200" height="40" fill="#152415" stroke="#3a5a3a" stroke-width="0.5"/>
+        <rect x="0" y="240" width="200" height="40" fill="#152415" stroke="#3a5a3a" stroke-width="0.5"/>
+        <!-- Playing field -->
+        <rect x="0" y="40" width="200" height="200" fill="#1e361e" stroke="none"/>
+        <!-- Field lines -->
+        <rect x="1" y="1" width="198" height="278" fill="none" stroke="#5a8a5a" stroke-width="1"/>
+        <line x1="0" y1="40" x2="200" y2="40" stroke="#7aaa7a" stroke-width="0.8"/>
+        <line x1="0" y1="240" x2="200" y2="240" stroke="#7aaa7a" stroke-width="0.8"/>
+        <!-- Yard lines every 20y (playing field 200yd space = 8 lines) -->
+        <line x1="0" y1="65" x2="200" y2="65" stroke="#3a5a3a" stroke-width="0.4" stroke-dasharray="4,4"/>
+        <line x1="0" y1="90" x2="200" y2="90" stroke="#3a5a3a" stroke-width="0.4" stroke-dasharray="4,4"/>
+        <line x1="0" y1="115" x2="200" y2="115" stroke="#3a5a3a" stroke-width="0.4" stroke-dasharray="4,4"/>
+        <line x1="0" y1="140" x2="200" y2="140" stroke="#5a7a5a" stroke-width="0.5"/>
+        <line x1="0" y1="165" x2="200" y2="165" stroke="#3a5a3a" stroke-width="0.4" stroke-dasharray="4,4"/>
+        <line x1="0" y1="190" x2="200" y2="190" stroke="#3a5a3a" stroke-width="0.4" stroke-dasharray="4,4"/>
+        <line x1="0" y1="215" x2="200" y2="215" stroke="#3a5a3a" stroke-width="0.4" stroke-dasharray="4,4"/>
+        <!-- Hash marks -->
+        <line x1="98" y1="40" x2="102" y2="40" stroke="#7aaa7a" stroke-width="1"/>
+        <line x1="98" y1="240" x2="102" y2="240" stroke="#7aaa7a" stroke-width="1"/>
+        <!-- Labels -->
+        <text x="6" y="22" fill="#4a7a4a" font-size="8" font-family="monospace">END ZONE</text>
+        <text x="6" y="262" fill="#4a7a4a" font-size="8" font-family="monospace">END ZONE</text>
+        <!-- Clickable overlay -->
+        <rect id="field-click-zone" x="0" y="0" width="200" height="280" fill="transparent" cursor="crosshair"/>
+        <!-- Markers group -->
+        <g id="markers-layer"></g>
+        <!-- Throw arrow group -->
+        <g id="arrows-layer"></g>
+        <!-- Other players group -->
+        <g id="other-players-layer"></g>
+      </svg>
+    </div>
+
+    <!-- PLACEMENT BAR -->
+    <div id="placement-bar">
+      <label>PLACE:</label>
+      <button class="pmode-btn" data-mode="thrower">⬤ Thrower</button>
+      <button class="pmode-btn" data-mode="rx_throw">◎ Rcvr@Throw</button>
+      <button class="pmode-btn" data-mode="rx_catch">◎ Rcvr@Catch</button>
+      <div class="sep" style="width:1px;height:16px;background:var(--border2)"></div>
+      <button class="pmode-btn purple" data-mode="other_throw">+ Other@Throw</button>
+      <button class="pmode-btn purple" data-mode="other_catch">+ Other@Catch</button>
+      <button class="pmode-btn" data-mode="none" id="btn-mode-none">✕ None</button>
+      <div id="placement-hint"></div>
+    </div>
+
+    <!-- OTHER PLAYER INPUT (shown when placing others) -->
+    <div id="other-player-form" style="display:none;background:var(--bg2);border-top:1px solid var(--border);padding:8px 12px;flex-shrink:0;display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+      <label style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Other Player:</label>
+      <input type="text" id="op-id" placeholder="player_id" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:4px 6px;border-radius:3px;font-family:var(--font);font-size:12px;width:100px">
+      <input type="text" id="op-name" placeholder="name" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:4px 6px;border-radius:3px;font-family:var(--font);font-size:12px;width:130px">
+      <input type="text" id="op-team" placeholder="team_id" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:4px 6px;border-radius:3px;font-family:var(--font);font-size:12px;width:90px">
+    </div>
+
+    <!-- LOG -->
+    <div id="log-panel">
+      <div id="log-header">
+        <span>THROW LOG</span>
+        <span id="log-count">0 throws</span>
+        <button id="btn-export">EXPORT SQL</button>
+      </div>
+      <div id="log-body">
+        <table>
+          <thead><tr>
+            <th>#</th><th>THROW ID</th><th>PERIOD</th><th>THROWER</th>
+            <th>RECEIVER</th><th>OUTCOME</th><th>TS THROW</th>
+          </tr></thead>
+          <tbody id="log-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DB CONFIG MODAL -->
+<div id="db-modal">
+  <div id="db-modal-inner">
+    <h2>DB / API Configuration</h2>
+    <p>This tool writes throws to a local SQLite proxy. Run the included <code>mlu_proxy.py</code> server on your TrueNAS host, then point this tool at it. Games are loaded from <code>mlu_games</code> via the same endpoint.</p>
+    <label>Proxy Base URL</label>
+    <input type="text" id="db-proxy-url" value="http://localhost:5050" placeholder="http://localhost:5050">
+    <label>Tagged By</label>
+    <input type="text" id="db-tagger" value="gabe" placeholder="your name/initials">
+    <div id="db-modal-btns">
+      <button class="tbtn" id="btn-db-connect" style="border-color:var(--green);color:var(--green)">CONNECT &amp; LOAD GAMES</button>
+      <button class="tbtn" id="btn-db-close">CLOSE</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const video = $('player');
+const scrubber = $('scrubber');
+
+let state = {
+  proxyUrl: localStorage.getItem('mlu_proxy') || 'http://localhost:5050',
+  tagger: localStorage.getItem('mlu_tagger') || 'gabe',
+  gameId: null,
+  placementMode: 'none',
+  throws: [],
+  otherPositions: [],
+  pendingOtherSnapshot: null,
+  fps: 30,
+  isYouTube: false
+};
+
+$('db-proxy-url').value = state.proxyUrl;
+$('db-tagger').value = state.tagger;
+
+function setStatus(msg, type='') {
+  const el = $('status-badge');
+  el.textContent = msg;
+  el.className = type;
+}
+
+function fmtTC(s) {
+  if (isNaN(s)) return '00:00.000';
+  const m = Math.floor(s / 60).toString().padStart(2,'0');
+  const sec = (s % 60).toFixed(3).padStart(6,'0');
+  return `${m}:${sec}`;
+}
+
+function updateTimecode() {
+  $('timecode').textContent = fmtTC(video.currentTime);
+  if (video.duration) scrubber.value = (video.currentTime / video.duration) * 1000;
+}
+
+video.addEventListener('timeupdate', updateTimecode);
+video.addEventListener('loadedmetadata', () => {
+  setStatus('VIDEO LOADED', 'ok');
+  $('no-video').style.display = 'none';
+});
+video.addEventListener('error', () => setStatus('VIDEO ERROR', 'err'));
+
+scrubber.addEventListener('input', () => {
+  if (!state.isYouTube && video.duration) video.currentTime = (scrubber.value / 1000) * video.duration;
+});
+
+$('btn-play').addEventListener('click', () => {
+  if (state.isYouTube) return;
+  if (video.paused) { video.play(); $('btn-play').textContent = '⏸ PAUSE'; $('btn-play').classList.add('active'); }
+  else { video.pause(); $('btn-play').textContent = '▶ PLAY'; $('btn-play').classList.remove('active'); }
+});
+
+$('fps-select').addEventListener('change', e => state.fps = parseFloat(e.target.value));
+
+$('btn-frame-back').addEventListener('click', () => { if (state.isYouTube) return; video.pause(); video.currentTime = Math.max(0, video.currentTime - 1/state.fps); updateTimecode(); });
+$('btn-frame-fwd').addEventListener('click', () => { if (state.isYouTube) return; video.pause(); video.currentTime = Math.min(video.duration||0, video.currentTime + 1/state.fps); updateTimecode(); });
+
+$('btn-mark-throw').addEventListener('click', markThrow);
+$('btn-mark-catch').addEventListener('click', markCatch);
+
+function getYouTubeId(url) {
+  const m = url.match(/[?&]v=([^&]+)/) || url.match(/youtu\.be\/([^?]+)/);
+  return m ? m[1] : null;
+}
+
+function loadVideo(url) {
+  if (!url) return;
+  const ytId = getYouTubeId(url);
+  if (ytId) {
+    video.style.display = 'none';
+    video.src = '';
+    const iframe = $('yt-player');
+    iframe.style.display = 'block';
+    iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?enablejsapi=1&controls=1`;
+    $('no-video').style.display = 'none';
+    state.isYouTube = true;
+    setStatus('YOUTUBE — use T/C to mark timestamps manually', 'ok');
+  } else {
+    $('yt-player').style.display = 'none';
+    $('yt-player').src = '';
+    video.style.display = 'block';
+    video.src = url;
+    video.load();
+    state.isYouTube = false;
+    setStatus('LOADING...', '');
+  }
+}
+
+function markThrow() {
+  if (state.isYouTube) {
+    $('f-throw-ts').value = prompt('Enter throw timestamp (seconds):', '') || '';
+  } else {
+    $('f-throw-ts').value = video.currentTime.toFixed(3);
+  }
+  $('btn-mark-throw').classList.add('active');
+  setTimeout(() => $('btn-mark-throw').classList.remove('active'), 400);
+}
+function markCatch() {
+  if (state.isYouTube) {
+    $('f-catch-ts').value = prompt('Enter catch timestamp (seconds):', '') || '';
+  } else {
+    $('f-catch-ts').value = video.currentTime.toFixed(3);
+  }
+  $('btn-mark-catch').classList.add('active');
+  setTimeout(() => $('btn-mark-catch').classList.remove('active'), 400);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === 't' || e.key === 'T') markThrow();
+  if (e.key === 'c' || e.key === 'C') markCatch();
+  if (e.key === ' ') { e.preventDefault(); $('btn-play').click(); }
+  if (e.key === 'ArrowLeft') $('btn-frame-back').click();
+  if (e.key === 'ArrowRight') $('btn-frame-fwd').click();
+});
+
+$('btn-load-video').addEventListener('click', () => {
+  const url = $('video-url-input').value.trim();
+  loadVideo(url);
+});
+
+$('game-select').addEventListener('change', e => {
+  const opt = e.target.selectedOptions[0];
+  state.gameId = e.target.value;
+  if (opt && opt.dataset.url) {
+    $('video-url-input').value = opt.dataset.url;
+  }
+});
+
+$('btn-db-config').addEventListener('click', () => $('db-modal').classList.add('open'));
+$('btn-db-close').addEventListener('click', () => $('db-modal').classList.remove('open'));
+
+$('btn-db-connect').addEventListener('click', async () => {
+  state.proxyUrl = $('db-proxy-url').value.trim();
+  state.tagger = $('db-tagger').value.trim();
+  localStorage.setItem('mlu_proxy', state.proxyUrl);
+  localStorage.setItem('mlu_tagger', state.tagger);
+  await loadGames();
+  $('db-modal').classList.remove('open');
+});
+
+async function loadGames() {
+  try {
+    setStatus('CONNECTING...', '');
+    const r = await fetch(`${state.proxyUrl}/games`);
+    if (!r.ok) throw new Error(r.status);
+    const games = await r.json();
+    const sel = $('game-select');
+    sel.innerHTML = '<option value="">-- select game --</option>';
+    games.forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g.game_id;
+      opt.dataset.url = g.streaming_url || '';
+      const date = g.start_timestamp ? g.start_timestamp.slice(0,10) : '';
+      opt.textContent = `${g.game_id} | Wk${g.week||'?'} ${g.away_team_id} @ ${g.home_team_id} ${date}`;
+      sel.appendChild(opt);
+    });
+    setStatus(`${games.length} GAMES`, 'ok');
+  } catch(e) {
+    setStatus('PROXY OFFLINE', 'err');
+  }
+}
+
+loadGames();
+
+const fieldSvg = $('field-svg');
+const markersLayer = $('markers-layer');
+const arrowsLayer = $('arrows-layer');
+const otherLayer = $('other-players-layer');
+
+function svgCoords(evt) {
+  const pt = fieldSvg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  const m = fieldSvg.getScreenCTM().inverse();
+  const r = pt.matrixTransform(m);
+  return { x: parseFloat(r.x.toFixed(2)), y: parseFloat(r.y.toFixed(2)) };
+}
+
+function fieldPct(svgX, svgY) {
+  return { x: parseFloat((svgX / 200 * 100).toFixed(1)), y: parseFloat((svgY / 280 * 100).toFixed(1)) };
+}
+
+const modeConfig = {
+  thrower:    { label: 'Thrower position', color: '#4f8ef7', rx: 'f-thrower-x', ry: 'f-thrower-y' },
+  rx_throw:   { label: 'Receiver position @ throw', color: '#f7b84b', rx: 'f-rx-throw', ry: 'f-ry-throw' },
+  rx_catch:   { label: 'Receiver position @ catch', color: '#3ecf8e', rx: 'f-rx-catch', ry: 'f-ry-catch' },
+  other_throw:{ label: 'Other player @ throw (fill form below)', color: '#a78bfa', rx: null, ry: null },
+  other_catch:{ label: 'Other player @ catch (fill form below)', color: '#c084fc', rx: null, ry: null },
+};
+
+document.querySelectorAll('.pmode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    setPlacementMode(btn.dataset.mode);
+  });
+});
+
+function setPlacementMode(mode) {
+  state.placementMode = mode;
+  document.querySelectorAll('.pmode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  const cfg = modeConfig[mode];
+  $('pmode-label').textContent = mode === 'none' ? 'none' : mode;
+  $('placement-hint').textContent = cfg ? cfg.label : '';
+  const showOtherForm = mode === 'other_throw' || mode === 'other_catch';
+  $('other-player-form').style.display = showOtherForm ? 'flex' : 'none';
+  fieldSvg.style.cursor = mode === 'none' ? 'default' : 'crosshair';
+}
+
+$('field-click-zone').addEventListener('click', e => {
+  if (state.placementMode === 'none') return;
+  const svg = svgCoords(e);
+  const pct = fieldPct(svg.x, svg.y);
+  const mode = state.placementMode;
+  const cfg = modeConfig[mode];
+  if (!cfg) return;
+
+  if (mode === 'other_throw' || mode === 'other_catch') {
+    const snapshot = mode === 'other_throw' ? 'throw' : 'catch';
+    state.otherPositions.push({
+      snapshot,
+      player_id: $('op-id').value.trim(),
+      player_name: $('op-name').value.trim(),
+      team_id: $('op-team').value.trim(),
+      x: pct.x, y: pct.y,
+      _svgX: svg.x, _svgY: svg.y
+    });
+    drawOtherPlayer(svg.x, svg.y, cfg.color, $('op-name').value.trim() || $('op-id').value.trim(), snapshot);
+    return;
+  }
+
+  $(cfg.rx).value = pct.x;
+  $(cfg.ry).value = pct.y;
+  drawMarker(mode, svg.x, svg.y, cfg.color);
+  drawArrowIfReady();
+});
+
+const markerEls = {};
+function drawMarker(id, x, y, color) {
+  if (markerEls[id]) markerEls[id].remove();
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.innerHTML = `<circle cx="${x}" cy="${y}" r="4" fill="${color}" opacity="0.9"/>
+    <circle cx="${x}" cy="${y}" r="4" fill="none" stroke="#fff" stroke-width="0.5" opacity="0.6"/>`;
+  markersLayer.appendChild(g);
+  markerEls[id] = g;
+}
+
+function drawOtherPlayer(x, y, color, label, snapshot) {
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.innerHTML = `<circle cx="${x}" cy="${y}" r="3" fill="${color}" opacity="0.7"/>
+    <text x="${x+4}" y="${y+3}" font-size="5" fill="${color}" font-family="monospace" opacity="0.9">${label||'?'}</text>`;
+  otherLayer.appendChild(g);
+}
+
+function drawArrowIfReady() {
+  const tx = parseFloat($('f-thrower-x').value);
+  const ty = parseFloat($('f-thrower-y').value);
+  const rx = parseFloat($('f-rx-throw').value);
+  const ry = parseFloat($('f-ry-throw').value);
+  if (isNaN(tx)||isNaN(ty)||isNaN(rx)||isNaN(ry)) return;
+  arrowsLayer.innerHTML = '';
+  const x1 = tx/100*200, y1 = ty/100*280;
+  const x2 = rx/100*200, y2 = ry/100*280;
+  const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('x1',x1); line.setAttribute('y1',y1);
+  line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+  line.setAttribute('stroke','#f7b84b'); line.setAttribute('stroke-width','1');
+  line.setAttribute('stroke-dasharray','3,2'); line.setAttribute('opacity','0.7');
+  arrowsLayer.appendChild(line);
+}
+
+function genThrowId() {
+  const gid = state.gameId || 'NOGAME';
+  const tid = $('f-thrower-id').value.replace(/\s+/g,'_') || 'UNK';
+  const rid = $('f-receiver-id').value.replace(/\s+/g,'_') || 'UNK';
+  const period = $('f-period').value || '0';
+  const ts = parseFloat($('f-throw-ts').value || '0').toFixed(1);
+  return `${gid}_${tid}_${rid}_Q${period}_${ts}`;
+}
+
+$('btn-save').addEventListener('click', async () => {
+  const throwId = genThrowId();
+  const row = {
+    throw_id: throwId,
+    game_id: state.gameId,
+    period: parseInt($('f-period').value),
+    period_time_remaining: parseFloat($('f-time-remaining').value) || null,
+    possession_team_id: $('f-poss-team').value.trim() || null,
+    thrower_id: $('f-thrower-id').value.trim() || null,
+    thrower_name: $('f-thrower-name').value.trim() || null,
+    thrower_x: parseFloat($('f-thrower-x').value) || null,
+    thrower_y: parseFloat($('f-thrower-y').value) || null,
+    receiver_id: $('f-receiver-id').value.trim() || null,
+    receiver_name: $('f-receiver-name').value.trim() || null,
+    receiver_x_at_throw: parseFloat($('f-rx-throw').value) || null,
+    receiver_y_at_throw: parseFloat($('f-ry-throw').value) || null,
+    receiver_x_at_catch: parseFloat($('f-rx-catch').value) || null,
+    receiver_y_at_catch: parseFloat($('f-ry-catch').value) || null,
+    throw_outcome: $('f-outcome').value || null,
+    throw_hand: $('f-throw-hand').value || null,
+    throw_type: $('f-throw-type').value || null,
+    throw_shape: $('f-throw-shape').value || null,
+    throw_timestamp: parseFloat($('f-throw-ts').value) || null,
+    catch_timestamp: parseFloat($('f-catch-ts').value) || null,
+    tagged_by: state.tagger,
+    tagged_at: new Date().toISOString(),
+    other_positions: state.otherPositions.map(p => ({...p, throw_id: throwId}))
+  };
+
+  try {
+    const r = await fetch(`${state.proxyUrl}/throw`, {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(row)
+    });
+    if (!r.ok) throw new Error(await r.text());
+    state.throws.push(row);
+    addLogRow(row);
+    clearForm();
+    setStatus(`SAVED: ${state.throws.length} throws`, 'ok');
+  } catch(e) {
+    state.throws.push(row);
+    addLogRow(row);
+    clearForm();
+    setStatus('PROXY OFFLINE — saved locally', 'err');
+  }
+});
+
+function addLogRow(row) {
+  const tbody = $('log-tbody');
+  const tr = document.createElement('tr');
+  const outcomeClass = `outcome-${row.throw_outcome||''}`;
+  tr.innerHTML = `<td>${state.throws.length}</td>
+    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;color:var(--text3)" title="${row.throw_id}">${row.throw_id}</td>
+    <td>${row.period||''}</td>
+    <td>${row.thrower_name||row.thrower_id||''}</td>
+    <td>${row.receiver_name||row.receiver_id||''}</td>
+    <td class="${outcomeClass}">${row.throw_outcome||''}</td>
+    <td>${row.throw_timestamp!=null?row.throw_timestamp.toFixed(3):''}</td>`;
+  tbody.prepend(tr);
+  $('log-count').textContent = `${state.throws.length} throws`;
+}
+
+function clearForm() {
+  ['f-time-remaining','f-poss-team','f-thrower-id','f-thrower-name',
+   'f-thrower-x','f-thrower-y','f-receiver-id','f-receiver-name',
+   'f-rx-throw','f-ry-throw','f-rx-catch','f-ry-catch',
+   'f-outcome','f-throw-hand','f-throw-type','f-throw-shape',
+   'f-throw-ts','f-catch-ts'].forEach(id => $(id).value = '');
+  $('shape-group').style.opacity = '0.3';
+  $('shape-group').style.pointerEvents = 'none';
+  markersLayer.innerHTML = '';
+  arrowsLayer.innerHTML = '';
+  otherLayer.innerHTML = '';
+  state.otherPositions = [];
+  Object.keys(markerEls).forEach(k => delete markerEls[k]);
+}
+
+$('f-throw-type').addEventListener('change', e => {
+  const shapeable = ['backhand','forehand'].includes(e.target.value);
+  $('shape-group').style.opacity = shapeable ? '1' : '0.3';
+  $('shape-group').style.pointerEvents = shapeable ? 'auto' : 'none';
+  if (!shapeable) $('f-throw-shape').value = '';
+});
+
+$('btn-clear').addEventListener('click', clearForm);
+
+$('btn-export').addEventListener('click', () => {
+  if (!state.throws.length) return;
+  const lines = [];
+  state.throws.forEach(t => {
+    const cols = Object.keys(t).filter(k => k !== 'other_positions');
+    const vals = cols.map(k => t[k] === null ? 'NULL' : `'${String(t[k]).replace(/'/g,"''")}'`);
+    lines.push(`INSERT OR IGNORE INTO mlu_throws (${cols.join(',')}) VALUES (${vals.join(',')});`);
+    (t.other_positions||[]).forEach((p,i) => {
+      const pid = `${t.throw_id}_op${i}`;
+      lines.push(`INSERT OR IGNORE INTO mlu_player_positions (position_id,throw_id,snapshot,player_id,player_name,team_id,x,y) VALUES ('${pid}','${t.throw_id}','${p.snapshot}','${p.player_id||''}','${p.player_name||''}','${p.team_id||''}',${p.x},${p.y});`);
+    });
+  });
+  const blob = new Blob([lines.join('\n')], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `mlu_throws_export_${Date.now()}.sql`;
+  a.click();
+});
+
+setPlacementMode('none');
+$('shape-group').style.opacity = '0.3';
+$('shape-group').style.pointerEvents = 'none';
+</script>
+</body>
+</html>

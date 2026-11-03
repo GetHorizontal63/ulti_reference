@@ -1,0 +1,13 @@
+# Build context for docker/api.Dockerfile and docker/worker.Dockerfile is the
+# repo root. Data is mounted at runtime and the frontend has its own image.
+data/
+frontend/
+docs/
+.git/
+.github/
+.venv/
+**/__pycache__/
+**/*.pyc
+**/*.log
+**/*.db
+**/*.db-*

@@ -1,0 +1,103 @@
+# ── ulti_reference — production stack (TrueNAS / Portainer) ──────────────────
+#
+# Images are built by GitHub Actions (.github/workflows/docker-images.yml) and
+# pulled from ghcr.io — nothing is built on TrueNAS. All state lives in one
+# dataset (DATA_ROOT) with the same layout as the repo's gitignored data/
+# folder, mounted at /app/data in the containers. See DEPLOY.md.
+#
+#   DATA_ROOT/
+#     db/ultimate.db      SQLite DB (+ -wal/-shm)         api rw, worker rw
+#     raw/  processed/    scraper working data            worker rw
+#     backups/            nightly DB copies               worker rw
+#     exports/            static JSON served at /data/    worker rw, web ro
+#     state/              whitelist.json, news_cache.json api rw
+#     logs/               scrape + cron logs              api/worker rw
+#
+# Required variables (Portainer → Stack → Environment variables, or .env):
+#   DATA_ROOT                e.g. /mnt/tank/apps/ulti_reference
+#   JWT_SECRET               openssl rand -base64 48   (keep stable)
+#   CORS_ORIGINS             https://yourdomain.com
+#   CLOUDFLARE_TUNNEL_TOKEN  Cloudflare Zero Trust → Tunnels → your tunnel
+# Optional:
+#   IMAGE_TAG     (default latest) — pin to a commit SHA to roll back
+#   FRONTEND_PORT (default 3000)   — LAN port for the site
+#   ENABLE_USAU   (default false)  — must match the web image's build flag
+#   STRIPE_*                       — billing
+
+x-app-env: &app-env
+  UFA_DB_PATH:   /app/data/db/ultimate.db
+  UFA_STATE_DIR: /app/data/state
+  UFA_LOG_DIR:   /app/data/logs
+  ENABLE_USAU:   ${ENABLE_USAU:-false}
+  TZ:            ${TZ:-UTC}
+
+services:
+
+  # ── API (FastAPI) — reachable only via the web container's /api/ proxy ──
+  api:
+    image: ghcr.io/gethorizontal63/ulti_reference-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      CORS_ORIGINS:                  ${CORS_ORIGINS:-http://localhost:3000}
+      JWT_SECRET:                    ${JWT_SECRET:?JWT_SECRET is required}
+      STRIPE_SECRET_KEY:             ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET:         ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_PRO_MONTHLY:      ${STRIPE_PRICE_PRO_MONTHLY:-}
+      STRIPE_PRICE_PRO_ANNUAL:       ${STRIPE_PRICE_PRO_ANNUAL:-}
+      STRIPE_PRICE_ANALYST_MONTHLY:  ${STRIPE_PRICE_ANALYST_MONTHLY:-}
+      STRIPE_PRICE_ANALYST_ANNUAL:   ${STRIPE_PRICE_ANALYST_ANNUAL:-}
+      STRIPE_PRICE_COLLEGE_MONTHLY:  ${STRIPE_PRICE_COLLEGE_MONTHLY:-}
+      STRIPE_PRICE_COLLEGE_ANNUAL:   ${STRIPE_PRICE_COLLEGE_ANNUAL:-}
+      STRIPE_PRICE_CLUB_MONTHLY:     ${STRIPE_PRICE_CLUB_MONTHLY:-}
+      STRIPE_PRICE_CLUB_ANNUAL:      ${STRIPE_PRICE_CLUB_ANNUAL:-}
+      STRIPE_PRICE_PRO_TEAM_MONTHLY: ${STRIPE_PRICE_PRO_TEAM_MONTHLY:-}
+      STRIPE_PRICE_PRO_TEAM_ANNUAL:  ${STRIPE_PRICE_PRO_TEAM_ANNUAL:-}
+    volumes:
+      # Mount the db/ directory, not the file: WAL needs -wal/-shm beside it
+      - ${DATA_ROOT:?DATA_ROOT is required}/db:/app/data/db
+      - ${DATA_ROOT}/state:/app/data/state
+      - ${DATA_ROOT}/logs:/app/data/logs
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 300s   # first boot builds indexes (backend/migrations)
+
+  # ── Worker — nightly scrapers + DB backup (cron) ─────────────────────────
+  worker:
+    image: ghcr.io/gethorizontal63/ulti_reference-worker:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      UFA_EXPORT_DIR: /app/data/exports
+    volumes:
+      - ${DATA_ROOT}:/app/data
+    depends_on:
+      api:
+        condition: service_healthy   # let the API apply migrations first
+
+  # ── Web — Nginx: built SPA, /data/ exports, /api/ proxy ──────────────────
+  web:
+    image: ghcr.io/gethorizontal63/ulti_reference-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    volumes:
+      - ${DATA_ROOT}/exports:/usr/share/nginx/html/data:ro
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # ── Cloudflare Tunnel — public HTTPS without opening ports ───────────────
+  # Zero Trust → Tunnels → Public Hostname: yourdomain.com → http://web:80
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}
+    depends_on:
+      - web
