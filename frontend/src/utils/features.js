@@ -4,7 +4,11 @@
 
 export const USAU_ENABLED = import.meta.env.VITE_ENABLE_USAU === 'true';
 
-const HIDDEN_PREFIXES = USAU_ENABLED ? [] : ['/usau'];
+// Always hidden for now: WFDF has no pages yet, and accounts/billing aren't
+// launched. Remove an entry to bring its links and routes back.
+const ALWAYS_HIDDEN = ['/wfdf', '/subscribe', '/account'];
+
+const HIDDEN_PREFIXES = USAU_ENABLED ? ALWAYS_HIDDEN : [...ALWAYS_HIDDEN, '/usau'];
 
 export function isRouteEnabled(to) {
   if (typeof to !== 'string') return true;
@@ -12,7 +16,7 @@ export function isRouteEnabled(to) {
 }
 
 export function isLeagueEnabled(id) {
-  return USAU_ENABLED || String(id).toLowerCase() !== 'usau';
+  return isRouteEnabled(`/${String(id).toLowerCase()}`);
 }
 
 // Drop nav entries that point at hidden routes, recursing into

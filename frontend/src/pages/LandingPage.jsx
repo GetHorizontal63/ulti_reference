@@ -1162,11 +1162,11 @@ export default function LandingPage() {
           ))}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-          {[
+          {pruneNav([
             { label: 'Blog',      to: '/blog' },
             { label: 'Subscribe', to: '/subscribe' },
             { label: 'Account',   to: '/account' },
-          ].map((item, i, arr) => (
+          ]).map((item, i, arr) => (
             <React.Fragment key={item.to}>
               <Link
                 to={item.to}
@@ -1244,11 +1244,11 @@ export default function LandingPage() {
       {/* ── Footer ── */}
       <div style={{ flexShrink: 0, borderTop: '1px solid var(--card-border-clr)', background: 'var(--card-bg)', backdropFilter: 'var(--card-backdrop)', padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, borderRadius: '0 0 4px 4px' }}>
         <div style={{ display: 'flex', gap: 0, flexWrap: 'wrap' }}>
-          {[
+          {pruneNav([
             { label: 'Blog',                to: '/blog' },
             { label: 'Account',             to: '/account' },
             { label: 'Submit UltiAnalytics', to: '/submit/ultianalytics' },
-          ].map((lnk, i, arr) => (
+          ]).map((lnk, i, arr) => (
             <React.Fragment key={lnk.to}>
               <Link
                 to={lnk.to}

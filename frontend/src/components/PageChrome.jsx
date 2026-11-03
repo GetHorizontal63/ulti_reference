@@ -315,11 +315,11 @@ export default function PageChrome() {
           ))}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-          {[
+          {pruneNav([
             { label: 'Blog',      to: '/blog'      },
             { label: 'Subscribe', to: '/subscribe' },
             { label: 'Account',   to: '/account'   },
-          ].map((item, i, arr) => (
+          ]).map((item, i, arr) => (
             <React.Fragment key={item.to}>
               <Link
                 to={item.to}

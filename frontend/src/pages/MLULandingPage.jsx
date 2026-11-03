@@ -48,7 +48,7 @@ export default function MLULandingPage() {
               ))}
             </div>
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              {[{ label: 'Blog', to: '/blog' }, { label: 'Subscribe', to: '/subscribe' }, { label: 'Account', to: '/account' }].map((item, i, arr) => (
+              {pruneNav([{ label: 'Blog', to: '/blog' }, { label: 'Subscribe', to: '/subscribe' }, { label: 'Account', to: '/account' }]).map((item, i, arr) => (
                 <React.Fragment key={item.to}>
                   <Link to={item.to} style={SNL} onMouseEnter={e => { e.currentTarget.style.color = 'var(--orange-light)'; }} onMouseLeave={e => { e.currentTarget.style.color = 'var(--t-muted)'; }}>{item.label}</Link>
                   {i < arr.length - 1 && <span style={SEP}>|</span>}

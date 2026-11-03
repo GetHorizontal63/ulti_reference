@@ -93,7 +93,7 @@ export default function LeagueShell({ league, children }) {
             })}
           </div>
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            {[{ label: 'Blog', to: '/blog' }, { label: 'Subscribe', to: '/subscribe' }, { label: 'Account', to: '/account' }].map((item, i, arr) => (
+            {pruneNav([{ label: 'Blog', to: '/blog' }, { label: 'Subscribe', to: '/subscribe' }, { label: 'Account', to: '/account' }]).map((item, i, arr) => (
               <React.Fragment key={item.to}>
                 <Link
                   to={item.to}

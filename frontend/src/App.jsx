@@ -2,7 +2,7 @@ import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './hooks/useTheme.jsx';
 import { AuthProvider }        from './contexts/AuthContext.jsx';
-import { USAU_ENABLED }        from './utils/features.js';
+import { USAU_ENABLED, isRouteEnabled } from './utils/features.js';
 const SubscribePage = lazy(() => import('./pages/SubscribePage.jsx'));
 const AccountPage = lazy(() => import('./pages/AccountPage.jsx'));
 const LandingPage = lazy(() => import('./pages/LandingPage.jsx'));
@@ -100,8 +100,9 @@ export default function App() {
           <Route path="/status"                  element={<StatusPage />} />
           <Route path="/admin"                   element={<AdminPage />} />
           <Route path="/submit/ultianalytics"    element={<SubmitUltiAnalyticsPage />} />
-          <Route path="/subscribe"               element={<SubscribePage />} />
-          <Route path="/account"                 element={<AccountPage />} />
+          {/* Hidden until accounts/billing launch — see utils/features.js */}
+          {isRouteEnabled('/subscribe') && <Route path="/subscribe" element={<SubscribePage />} />}
+          {isRouteEnabled('/account')   && <Route path="/account"   element={<AccountPage />} />}
           {/* USAU hidden until a common player/team ID exists — see utils/features.js */}
           {USAU_ENABLED && (
             <>
