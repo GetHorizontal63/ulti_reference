@@ -17,22 +17,3 @@ plus a local data folder:
 | `data/` | **Gitignored.** DB, scraper caches, exports, backups ([data/README.md](data/README.md)) | TrueNAS dataset |
 | `tests/` | API smoke tests (run in CI) | |
 | `docs/` | Data source credits | |
-
-## Local development
-
-```bash
-python -m venv .venv && . .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r docker/requirements-api.txt -r docker/requirements-worker.txt pytest
-# data/db/ultimate.db must exist (copy the newest production backup there)
-uvicorn backend.api:app --reload --port 8000
-
-cd frontend && npm install && npm run dev              # http://localhost:5173
-pytest tests/
-```
-
-## Deployment
-
-See [DEPLOY.md](DEPLOY.md). GitHub Actions builds the three images, and TrueNAS
-runs them behind a Cloudflare Tunnel with `data/` on a dataset.
-
-Data sources are credited in [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md).
